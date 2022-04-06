@@ -1,6 +1,7 @@
 package corehttp
 
 import (
+	"fmt"
 	"net/http"
 	"net/url"
 	gopath "path"
@@ -132,6 +133,9 @@ func (i *gatewayHandler) serveDirectory(w http.ResponseWriter, r *http.Request, 
 			ShortHash: shortHash(hash),
 		}
 		dirListing = append(dirListing, di)
+		if i.config.MaxDirectorySize > 0 && len(dirListing) >= i.config.MaxDirectorySize {
+			break
+		}
 	}
 	if dirit.Err() != nil {
 		internalWebError(w, dirit.Err())
@@ -193,6 +197,14 @@ func (i *gatewayHandler) serveDirectory(w http.ResponseWriter, r *http.Request, 
 		BackLink:    backLink,
 		Hash:        hash,
 	}
+
+	if i.config.MaxDirectorySize > 0 && len(dirListing) >= i.config.MaxDirectorySize {
+		tplData.WarnMaxDirectorySize = fmt.Sprintf("Directories bigger than %d items can't be rendered fully. Try using the CLI: ipfs ls -s --size=false --resolve-type=false %s",
+			i.config.MaxDirectorySize, resolvedPath.Cid().String())
+	}
+	// FIXME(BLOCKING): Temporary log while I regenerate the assets (have some
+	//  deps missing in my local env).
+	log.Warn(tplData.WarnMaxDirectorySize)
 
 	logger.Debugw("request processed", "tplDataDNSLink", dnslink, "tplDataSize", size, "tplDataBackLink", backLink, "tplDataHash", hash)
 
